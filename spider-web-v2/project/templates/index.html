@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SpiderWeb REAL</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            background: #0a0a0a; 
+            color: white; 
+            font-family: Arial; 
+        }
+        #container { 
+            padding: 20px; 
+            height: 100vh;
+        }
+        h1 {
+            text-align: center;
+            color: #4ecdc4;
+            margin-bottom: 10px;
+        }
+        #spiderweb { 
+            width: 100%; 
+            height: 70vh; 
+            background: #1a1a1a; 
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+        #info { 
+            background: #1a1a1a; 
+            padding: 15px; 
+            border-radius: 10px; 
+            margin-top: 10px;
+            border: 1px solid #333;
+        }
+        .stats {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .stat-card {
+            flex: 1;
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+        .stat-label {
+            font-size: 0.8em;
+            color: #ccc;
+        }
+        .detail-item {
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        .detail-label {
+            color: #4ecdc4;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body onload="getScreenResolution()">
+    <div id="container">
+        <h1>🕸️ SpiderWeb - Visitantes REALES</h1>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="total-visitors">0</div>
+                <div class="stat-label">Visitantes Activos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="your-visits">1</div>
+                <div class="stat-label">Tus Visitas</div>
+            </div>
+        </div>
+
+        <div id="spiderweb"></div>
+
+        <div id="info">
+            <h3>📊 Información del Visitante</h3>
+            <div id="details">Haz clic en un nodo para ver detalles...</div>
+        </div>
+    </div>
+
+    <script>
+        let width = 800, height = 500;
+        let svg, simulation;
+        let nodePositions = {};
+        let myVisitorId = '';
+
+        function init() {
+            svg = d3.select("#spiderweb")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+            
+            loadNetwork();
+            // Actualizar cada 3 segundos
+            setInterval(loadNetwork, 3000);
+        }
+
+        function loadNetwork() {
+            fetch('/api/network')
+                .then(r => r.json())
+                .then(data => {
+                    console.log("Datos recibidos:", data);
+                    updateVisualization(data);
+                })
+                .catch(error => console.log("Error:", error));
+        }
+
+        function updateVisualization(data) {
+            // Actualizar stats
+            document.getElementById('total-visitors').textContent = data.nodes.length - 1;
+            
+            // Limpiar SVG
+            svg.selectAll("*").remove();
+
+            // Dibujar fondo
+            drawSpiderWeb();
+
+            // Enlaces
+            const links = svg.selectAll(".link")
+                .data(data.links)
+                .enter().append("line")
+                .attr("class", "link")
+                .attr("stroke", "#4ecdc4")
+                .attr("stroke-width", d => d.strength * 3 + 1)
+                .attr("stroke-opacity", 0.6);
+
+            // Nodos
+            const nodes = svg.selectAll(".node")
+                .data(data.nodes)
+                .enter().append("g")
+                .attr("class", "node")
+                .call(d3.drag()
+                    .on("start", dragStart)
+                    .on("drag", drag)
+                    .on("end", dragEnd));
+
+            // Círculos
+            nodes.append("circle")
+                .attr("r", d => d.type === 'center' ? 25 : 12)
+                .attr("fill", d => d.type === 'center' ? "#4ecdc4" : getVisitorColor(d))
+                .attr("stroke", "white")
+                .attr("stroke-width", 2)
+                .style("cursor", "pointer")
+                .on("click", showDetails);
+
+            // Etiquetas
+            nodes.append("text")
+                .text(d => d.type === 'center' ? d.name : `V_${d.id.slice(0,6)}`)
+                .attr("text-anchor", "middle")
+                .attr("dy", d => d.type === 'center' ? -30 : -15)
+                .attr("fill", "white")
+                .style("font-size", "11px")
+                .style("font-weight", "bold");
+
+            // Aplicar posiciones guardadas
+            nodes.each(function(d) {
+                if (nodePositions[d.id]) {
+                    d.x = nodePositions[d.id].x;
+                    d.y = nodePositions[d.id].y;
+                    d.fx = d.x;
+                    d.fy = d.y;
+                }
+            });
+
+            // Simulación
+            simulation = d3.forceSimulation(data.nodes)
+                .force("link", d3.forceLink(data.links).id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(d => d.type === 'center' ? -800 : -50))
+                .force("center", d3.forceCenter(width/2, height/2))
+                .alphaDecay(0.05);
+
+            simulation.on("tick", () => {
+                // Guardar posiciones
+                nodes.each(d => {
+                    if (d.x && d.y) {
+                        nodePositions[d.id] = { x: d.x, y: d.y };
+                    }
+                });
+
+                links.attr("x1", d => d.source.x)
+                     .attr("y1", d => d.source.y)
+                     .attr("x2", d => d.target.x)
+                     .attr("y2", d => d.target.y);
+
+                nodes.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+        }
+
+        function getVisitorColor(visitor) {
+            if (!visitor.client_info) return "#ff6b6b";
+            
+            const browser = visitor.client_info.browser;
+            if (browser === 'Chrome') return "#4285f4";
+            if (browser === 'Firefox') return "#ff9500";
+            if (browser === 'Safari') return "#000000";
+            return "#ff6b6b";
+        }
+
+        function drawSpiderWeb() {
+            const centerX = width/2, centerY = height/2;
+            
+            // Círculos concéntricos
+            for(let i = 1; i <= 3; i++) {
+                svg.append("circle")
+                    .attr("cx", centerX)
+                    .attr("cy", centerY)
+                    .attr("r", i * 80)
+                    .attr("fill", "none")
+                    .attr("stroke", "rgba(78, 205, 196, 0.2)")
+                    .attr("stroke-width", 1);
+            }
+        }
+
+        function dragStart(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function drag(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragEnd(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function showDetails(event, d) {
+            const details = document.getElementById("details");
+            
+            if (d.type === 'center') {
+                details.innerHTML = `
+                    <div class="detail-item">
+                        <span class="detail-label">🌐 Sitio Central</span><br>
+                        Visitantes conectados: ${d3.selectAll(".node").size() - 1}
+                    </div>
+                `;
+            } else {
+                const client = d.client_info || {};
+                details.innerHTML = `
+                    <div class="detail-item">
+                        <span class="detail-label">👤 Visitante ID:</span> ${d.id.slice(0,16)}...
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">📊 Páginas:</span> ${d.page_visits} | 
+                        <span class="detail-label">Engagement:</span> ${d.engagement_score.toFixed(1)}%
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">📍 IP:</span> ${client.ip || 'Unknown'}
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">💻 Sistema:</span> ${client.os || 'Unknown'}
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">🌐 Navegador:</span> ${client.browser || 'Unknown'}
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">📱 Dispositivo:</span> ${client.device || 'Unknown'}
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">🕐 Primera visita:</span> ${new Date(d.first_seen).toLocaleTimeString()}
+                    </div>
+                `;
+            }
+        }
+
+        function getScreenResolution() {
+            const screen = `${screen.width}x${screen.height}`;
+            // Enviar al servidor
+            fetch(window.location.href + `?screen=${screen}`);
+        }
+
+        // Iniciar
+        init();
+    </script>
+</body>
+</html>
