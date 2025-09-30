@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🕸️ Spider Web Real</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle, #0a0a0a 0%, #000000 100%);
+            color: white;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #spiderweb {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #8B4513;
+            backdrop-filter: blur(10px);
+        }
+        
+        .stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #8B4513;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* NUEVO: Panel de información de araña */
+        #spider-info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 800px;
+            max-height: 400px;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #8B4513;
+            border-radius: 15px;
+            padding: 20px;
+            z-index: 1000;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 0 30px rgba(139, 69, 19, 0.5);
+            display: none;
+            overflow-y: auto;
+        }
+        
+        .spider-info-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #8B4513;
+            padding-bottom: 10px;
+        }
+        
+        .spider-info-title {
+            font-size: 1.4em;
+            color: #FFD700;
+            font-weight: bold;
+        }
+        
+        .close-btn {
+            background: #8B4513;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .close-btn:hover {
+            background: #A0522D;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-section {
+            background: rgba(139, 69, 19, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #8B4513;
+        }
+        
+        .info-section h4 {
+            margin: 0 0 10px 0;
+            color: #FFD700;
+            font-size: 1.1em;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-label {
+            color: #8B4513;
+            font-weight: bold;
+            min-width: 120px;
+        }
+        
+        .info-value {
+            color: white;
+            text-align: right;
+            flex: 1;
+        }
+        
+        .threat-low { color: #4ecdc4; }
+        .threat-medium { color: #FFD700; }
+        .threat-high { color: #FF6B6B; }
+        
+        .device-mobile { color: #4ecdc4; }
+        .device-tablet { color: #FFD700; }
+        .device-desktop { color: #FF6B6B; }
+        
+        button {
+            background: #8B4513;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        
+        button:hover {
+            background: #A0522D;
+        }
+        
+        .stat-number {
+            font-size: 1.8em;
+            color: #FFD700;
+            font-weight: bold;
+        }
+        
+        .spider-legs {
+            stroke: #8B4513;
+            stroke-width: 2;
+        }
+        
+        .web-line {
+            stroke: rgba(255, 255, 255, 0.3);
+            stroke-width: 1;
+        }
+        
+        .spiral-web {
+            stroke: rgba(139, 69, 19, 0.4);
+            stroke-width: 0.5;
+        }
+        
+        .spider-body {
+            fill: #8B4513;
+            stroke: #000;
+            stroke-width: 2;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .spider-body:hover {
+            fill: #A0522D;
+            stroke: #FFD700;
+            stroke-width: 3;
+        }
+        
+        .spider-center {
+            fill: #8B4513;
+            stroke: #FFD700;
+            stroke-width: 3;
+        }
+        
+        .spider-eye {
+            fill: #FF0000;
+        }
+        
+        .selected-spider {
+            fill: #FFD700 !important;
+            stroke: #FF0000 !important;
+            stroke-width: 4 !important;
+            animation: glow 1.5s infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 5px #FFD700); }
+            to { filter: drop-shadow(0 0 15px #FFD700); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+        
+        /* Scrollbar personalizado */
+        #spider-info-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #spider-info-panel::-webkit-scrollbar-track {
+            background: rgba(139, 69, 19, 0.1);
+            border-radius: 4px;
+        }
+        
+        #spider-info-panel::-webkit-scrollbar-thumb {
+            background: #8B4513;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div class="controls">
+            <h3>🕷️ Controles de la Telaraña</h3>
+            <button onclick="addSpider()">➕ Añadir Araña</button>
+            <button onclick="refreshWeb()">🔄 Actualizar Telaraña</button>
+            <button onclick="toggleAnimation()">⚡ Animación</button>
+        </div>
+        
+        <div class="stats">
+            <h3>📊 Estadísticas</h3>
+            <div class="stat-number" id="total-spiders">0</div>
+            <div>Arañas en la web</div>
+            <div class="stat-number" id="web-connections">0</div>
+            <div>Conexiones</div>
+        </div>
+        
+        <!-- NUEVO: Panel de información de araña -->
+        <div id="spider-info-panel">
+            <div class="spider-info-header">
+                <div class="spider-info-title" id="spider-info-title">Información de la Araña</div>
+                <button class="close-btn" onclick="closeSpiderInfo()">✕ Cerrar</button>
+            </div>
+            <div id="spider-info-content">
+                <!-- La información se cargará dinámicamente aquí -->
+            </div>
+        </div>
+        
+        <div id="spiderweb"></div>
+    </div>
+
+    <script>
+        let svg, simulation;
+        let animationEnabled = true;
+        let selectedSpider = null;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        
+        // Inicializar SVG
+        function initSpiderWeb() {
+            svg = d3.select("#spiderweb")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+            
+            loadSpiderWeb();
+        }
+        
+        // Cargar datos de la telaraña
+        async function loadSpiderWeb() {
+            try {
+                const response = await fetch('/api/spiderweb');
+                const data = await response.json();
+                drawSpiderWeb(data);
+            } catch (error) {
+                console.error('Error loading spider web:', error);
+            }
+        }
+        
+        // Dibujar la telaraña completa
+        function drawSpiderWeb(data) {
+            // Limpiar
+            svg.selectAll("*").remove();
+            
+            // Actualizar estadísticas
+            document.getElementById('total-spiders').textContent = data.nodes.length - 1;
+            document.getElementById('web-connections').textContent = data.links.length;
+            
+            // Dibujar telaraña de fondo
+            drawBackgroundWeb();
+            
+            // Dibujar conexiones
+            drawWebConnections(data.links);
+            
+            // Dibujar arañas
+            drawSpiders(data.nodes);
+            
+            // Animación continua si está habilitada
+            if (animationEnabled) {
+                startWebAnimation();
+            }
+        }
+        
+        // Dibujar telaraña de fondo
+        function drawBackgroundWeb() {
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const maxRadius = Math.min(width, height) * 0.4;
+            
+            // Líneas radiales
+            for (let i = 0; i < 12; i++) {
+                const angle = (i / 12) * 2 * Math.PI;
+                const endX = centerX + Math.cos(angle) * maxRadius;
+                const endY = centerY + Math.sin(angle) * maxRadius;
+                
+                svg.append("line")
+                    .attr("x1", centerX)
+                    .attr("y1", centerY)
+                    .attr("x2", endX)
+                    .attr("y2", endY)
+                    .attr("class", "web-line");
+            }
+            
+            // Espirales concéntricas
+            for (let radius = 50; radius <= maxRadius; radius += 50) {
+                svg.append("circle")
+                    .attr("cx", centerX)
+                    .attr("cy", centerY)
+                    .attr("r", radius)
+                    .attr("class", "spiral-web")
+                    .attr("fill", "none");
+            }
+        }
+        
+        // Dibujar conexiones de la telaraña
+        function drawWebConnections(links) {
+            links.forEach(link => {
+                const line = svg.append("line")
+                    .attr("class", link.type === 'radial' ? "web-line" : "spiral-web")
+                    .attr("stroke-width", link.strength * 3 + 0.5);
+                
+                if (animationEnabled) {
+                    line.attr("class", link.type === 'radial' ? "web-line pulse" : "spiral-web pulse");
+                }
+            });
+        }
+        
+        // Dibujar las arañas
+        function drawSpiders(nodes) {
+            const spiderGroup = svg.selectAll(".spider")
+                .data(nodes)
+                .enter().append("g")
+                .attr("class", "spider")
+                .attr("transform", d => {
+                    if (d.type === 'center') {
+                        return `translate(${width/2},${height/2})`;
+                    } else {
+                        const angle = d.radial_position || Math.random() * 2 * Math.PI;
+                        const distance = d.distance || 200;
+                        const x = width/2 + Math.cos(angle) * distance;
+                        const y = height/2 + Math.sin(angle) * distance;
+                        return `translate(${x},${y})`;
+                    }
+                })
+                .call(d3.drag()
+                    .on("start", dragStart)
+                    .on("drag", drag)
+                    .on("end", dragEnd));
+            
+            // Cuerpo de la araña
+            spiderGroup.append("circle")
+                .attr("r", d => d.type === 'center' ? 20 : 8)
+                .attr("class", d => {
+                    if (d.type === 'center') return "spider-center";
+                    if (selectedSpider && selectedSpider.id === d.id) return "spider-body selected-spider";
+                    return "spider-body";
+                })
+                .on("click", (event, d) => showSpiderInfo(d));
+            
+            // Patas de la araña (8 patas)
+            for (let i = 0; i < 8; i++) {
+                spiderGroup.append("line")
+                    .attr("class", "spider-legs")
+                    .attr("x1", 0)
+                    .attr("y1", 0)
+                    .attr("x2", (d) => {
+                        const angle = (i / 8) * 2 * Math.PI;
+                        const length = d.type === 'center' ? 25 : 12;
+                        return Math.cos(angle) * length;
+                    })
+                    .attr("y2", (d) => {
+                        const angle = (i / 8) * 2 * Math.PI;
+                        const length = d.type === 'center' ? 25 : 12;
+                        return Math.sin(angle) * length;
+                    });
+            }
+            
+            // Ojos de la araña (8 ojos)
+            for (let i = 0; i < 8; i++) {
+                spiderGroup.append("circle")
+                    .attr("class", "spider-eye")
+                    .attr("r", 1.5)
+                    .attr("cx", d => {
+                        const angle = (i / 8) * 2 * Math.PI;
+                        const distance = d.type === 'center' ? 8 : 3;
+                        return Math.cos(angle) * distance;
+                    })
+                    .attr("cy", d => {
+                        const angle = (i / 8) * 2 * Math.PI;
+                        const distance = d.type === 'center' ? 8 : 3;
+                        return Math.sin(angle) * distance;
+                    });
+            }
+            
+            // Etiqueta de la araña
+            spiderGroup.append("text")
+                .text(d => d.name)
+                .attr("text-anchor", "middle")
+                .attr("dy", d => d.type === 'center' ? -35 : -20)
+                .attr("fill", "#FFD700")
+                .style("font-size", d => d.type === 'center' ? "14px" : "10px")
+                .style("font-weight", "bold");
+        }
+        
+        // NUEVO: Mostrar información de la araña
+        function showSpiderInfo(spider) {
+            if (spider.type === 'center') {
+                showCenterSpiderInfo(spider);
+            } else {
+                showVisitorSpiderInfo(spider);
+            }
+            
+            // Resaltar araña seleccionada
+            selectedSpider = spider;
+            loadSpiderWeb(); // Redibujar para aplicar estilos
+        }
+        
+        function showVisitorSpiderInfo(spider) {
+            const profile = spider.spider_profile || {};
+            const summary = profile.summary || {};
+            const browser = profile.browser || {};
+            const os = profile.operating_system || {};
+            const device = profile.device || {};
+            const network = profile.network || {};
+            
+            document.getElementById('spider-info-title').textContent = `🕷️ ${spider.name} - Información Detallada`;
+            
+            const content = `
+                <div class="info-grid">
+                    <div class="info-section">
+                        <h4>📊 Información Básica</h4>
+                        <div class="info-item">
+                            <span class="info-label">UUID:</span>
+                            <span class="info-value">${spider.id}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Visitas:</span>
+                            <span class="info-value">${spider.page_visits}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Engagement:</span>
+                            <span class="info-value">${spider.engagement}%</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Primera visita:</span>
+                            <span class="info-value">${new Date(spider.first_seen).toLocaleString()}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4>🌐 Navegador & Sistema</h4>
+                        <div class="info-item">
+                            <span class="info-label">Navegador:</span>
+                            <span class="info-value">${summary.browser_full || 'Unknown'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Motor:</span>
+                            <span class="info-value">${browser.engine || 'Unknown'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Sistema:</span>
+                            <span class="info-value">${summary.os_full || 'Unknown'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Arquitectura:</span>
+                            <span class="info-value">${os.architecture || 'Unknown'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4>📱 Dispositivo</h4>
+                        <div class="info-item">
+                            <span class="info-label">Tipo:</span>
+                            <span class="info-value device-${device.type ? device.type.toLowerCase() : 'desktop'}">
+                                ${device.type || 'Desktop'}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Marca:</span>
+                            <span class="info-value">${device.brand || 'Unknown'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Modelo:</span>
+                            <span class="info-value">${device.model || 'Unknown'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Móvil:</span>
+                            <span class="info-value">${device.is_mobile ? 'Sí' : 'No'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4>🌍 Red & Seguridad</h4>
+                        <div class="info-item">
+                            <span class="info-label">IP:</span>
+                            <span class="info-value">${network.ip_address || 'Unknown'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Tipo red:</span>
+                            <span class="info-value">${network.type || 'Unknown'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Proxy:</span>
+                            <span class="info-value">${network.is_proxy ? 'Sí' : 'No'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">VPN:</span>
+                            <span class="info-value">${network.is_vpn ? 'Sí' : 'No'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Nivel amenaza:</span>
+                            <span class="info-value threat-${summary.threat_level ? summary.threat_level.toLowerCase() : 'low'}">
+                                ${summary.threat_level || 'Low'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('spider-info-content').innerHTML = content;
+            document.getElementById('spider-info-panel').style.display = 'block';
+        }
+        
+        function showCenterSpiderInfo(spider) {
+            document.getElementById('spider-info-title').textContent = '👑 Reina Araña - Centro de la Telaraña';
+            
+            const content = `
+                <div style="text-align: center; padding: 20px;">
+                    <h3 style="color: #FFD700; margin-bottom: 15px;">🕸️ Centro del Sistema</h3>
+                    <p>Esta es la araña reina que controla toda la telaraña.</p>
+                    <p>Desde aquí se monitorizan todas las arañas visitantes.</p>
+                    <div style="margin-top: 20px; padding: 15px; background: rgba(139, 69, 19, 0.2); border-radius: 8px;">
+                        <strong>Estado del Sistema:</strong> 🟢 OPERATIVO<br>
+                        <strong>Arañas conectadas:</strong> <span id="connected-spiders-count">0</span>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('spider-info-content').innerHTML = content;
+            document.getElementById('spider-info-panel').style.display = 'block';
+        }
+        
+        function closeSpiderInfo() {
+            document.getElementById('spider-info-panel').style.display = 'none';
+            selectedSpider = null;
+            loadSpiderWeb(); // Redibujar para quitar resaltado
+        }
+        
+        // Animación de la telaraña
+        function startWebAnimation() {
+            if (!animationEnabled) return;
+            
+            svg.selectAll(".web-line, .spiral-web")
+                .transition()
+                .duration(2000)
+                .attr("stroke-opacity", 0.3)
+                .transition()
+                .duration(2000)
+                .attr("stroke-opacity", 0.7)
+                .on("end", startWebAnimation);
+        }
+        
+        // Funciones de drag
+        function dragStart(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function drag(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        
+        function dragEnd(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+        
+        // Controladores
+        function addSpider() {
+            fetch('/api/add_spider')
+                .then(() => loadSpiderWeb());
+        }
+        
+        function refreshWeb() {
+            loadSpiderWeb();
+        }
+        
+        function toggleAnimation() {
+            animationEnabled = !animationEnabled;
+            if (animationEnabled) {
+                startWebAnimation();
+            } else {
+                svg.selectAll("*").transition().duration(0);
+            }
+        }
+        
+        // Inicializar
+        initSpiderWeb();
+        
+        // Actualizar cada 5 segundos
+        setInterval(loadSpiderWeb, 5000);
+        
+        // Redimensionar
+        window.addEventListener('resize', () => {
+            location.reload();
+        });
+        
+        // Cerrar panel con ESC
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeSpiderInfo();
+            }
+        });
+    </script>
+</body>
+</html>
